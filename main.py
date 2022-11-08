@@ -1,20 +1,31 @@
-from datetime import date, timedelta
 import re
 import sys
+import time
 import fnmatch # Used to see if websites matches in-scope wildcard (i.e. hi.bob.com == *.bob.com)
+import requests
 import pandas
 
-target = 'tesla.com'
+# TO DO:
+# Implement continuous scanning
+# Command functionality (i.e., bh -t tesla.com)
+# Allow for multiple targets
 
-# NEED To input this into domain_query. Use this instead of hard coding head values?
-dates = date.today() - timedelta(days=30) # take this date and time, run in beginning of scan, anything after is a new target
-print(dates)
+target = 'tesla.com'
 
 def domain_query():
     cert_database = 'https://crt.sh/?CN=' + target
 
-    # Add try except here so if I get 500 error, it waits 5 seconds and starts again
-    table = pandas.read_html(cert_database) # Searches crt.sh to display new websites associated with target domain
+    response = requests.get(cert_database)
+    while response.status_code != 200: # Try and access database. If HTTP GET != 200, wait 3 seconds then try again
+        time.sleep(3)
+        response = requests.get(cert_database)
+    
+    table = pandas.read_html(response.text) # Pull data from GET requests for use in pandas
+
+    if 'Certificates  None found' in str(table): # Check if target is part of crt.sh database
+        print('\nERROR! Target', target, 'could not be found in crt.sh. Please try a different target.\n')
+        sys.exit()
+    
     data_frame = table[2].loc[:, ('Logged At ⇧', 'Matching Identities')] # Prints all rows for columns "Logged At ⇧" and "Matching Identities"
     entries = data_frame.values.tolist()
     
@@ -28,8 +39,8 @@ def domain_query():
     except IndexError:
         return 0
 
-    print("\n\n*** Potential targets identified ***\n", websites, 
-        "\n\n************************************\n")
+    print('**** Targets from crt.sh database ****\n\n', websites,
+        '\n\n**************************************\n')
     return websites
 
 
@@ -42,16 +53,15 @@ def bugcrowd():
     search_bc = bugcrowd_df[bugcrowd_df['name'] == target_bc] # Stores results of search
 
     if search_bc.empty: # Checks to see if target is in Bugcrowd database
-        print("\nERROR: Target could not be identified in Bugcrowd database. Try a different target.\n")
+        print('\nERROR!', target, ' is in crt.sh but does not appear to have a Bugcrowd bounty program. Try a different target.\n')
         sys.exit()
     
     else:
         search_bc_targets = pandas.DataFrame.from_dict(search_bc['targets'].to_dict()) # stores in_scope and out_of_scope targets in dictionary before passing to dataframe
 
-        # Had to convert following line from dataframe to dict to str. Dataframe output is truncated for some reason
+        # Had to convert following lines from dataframe to dict to str. Dataframe output is truncated for some reason
         out_of_scope_text = str(search_bc_targets.loc['out_of_scope'].to_dict())
         out_of_scope_list = re.findall(r"'target': '(.*?)'}", out_of_scope_text)
-        
         in_scope_text = str(search_bc_targets.loc['in_scope'].to_dict())
         in_scope_list = re.findall(r"'target': '(.*?)'}", in_scope_text)
         
@@ -70,7 +80,7 @@ def bugcrowd():
                     else:
                         match = 2
                         break
-                        
+          
             if match == 0:
                 print(website, 'NOT in list')
             
@@ -80,6 +90,17 @@ def bugcrowd():
             elif match == 2:
                 print(website, 'is in scope')
 
-domain_query()
 
-bugcrowd()
+def main():
+    bugcrowd()
+
+    seconds = 10800
+    print("\nScan complete.", seconds / 3600, "hours until next scan.\n")
+
+    z = 1
+    while z == 1: # need to change to while not exit
+        time.sleep(seconds) # waits 3 hours before scanning again
+        print("Starting NEW scan")
+        bugcrowd()
+
+main()
