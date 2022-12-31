@@ -9,6 +9,8 @@ import pandas
 # Implement continuous scanning
 # Command functionality (i.e., bh -t tesla.com)
 # Allow for multiple targets
+# Add HackerOne DB
+# add test to see if targets return http status code of 200?
 
 target = 'tesla.com'
 
@@ -39,13 +41,14 @@ def domain_query():
     except IndexError:
         return 0
 
-    print('**** Targets from crt.sh database ****\n\n', websites,
-        '\n\n**************************************\n')
+    print('\nTargets from crt.sh database:\n', websites, '\n')
     return websites
 
 
 def bugcrowd():
     websites = domain_query()
+    in_scope_websites = []
+
     
     # Checks Bugcrowd to see if a bug bounty exists for the targets
     bugcrowd_df = pandas.read_json('https://raw.githubusercontent.com/arkadiyt/bounty-targets-data/main/data/bugcrowd_data.json') # Stores bugcrowd_data.json in pandas DataFrame "bugcrowd_df"
@@ -59,36 +62,33 @@ def bugcrowd():
     else:
         search_bc_targets = pandas.DataFrame.from_dict(search_bc['targets'].to_dict()) # stores in_scope and out_of_scope targets in dictionary before passing to dataframe
 
-        # Had to convert following lines from dataframe to dict to str. Dataframe output is truncated for some reason
+        # Had to convert following lines from dataframe to dict to str as Dataframe output is truncated
         out_of_scope_text = str(search_bc_targets.loc['out_of_scope'].to_dict())
         out_of_scope_list = re.findall(r"'target': '(.*?)'}", out_of_scope_text)
         in_scope_text = str(search_bc_targets.loc['in_scope'].to_dict())
         in_scope_list = re.findall(r"'target': '(.*?)'}", in_scope_text)
         
         for website in websites:
-            match = 0
             
             for in_scope in in_scope_list:
                 
                 if fnmatch.fnmatch(website, in_scope): # Checks if in scope
                 
                     for out_scope in out_of_scope_list:
-                
+
                         if fnmatch.fnmatch(website, out_scope): # Checks if out of scope
-                            match = 1
                             break
-                    else:
-                        match = 2
-                        break
-          
-            if match == 0:
-                print(website, 'NOT in list')
-            
-            elif match == 1:
-                print(website, 'is  out of scope')
-            
-            elif match == 2:
-                print(website, 'is in scope')
+                    
+                        else:
+                            in_scope_websites.append(website)
+                            break
+
+    if len(in_scope_websites) == 0:
+        print("\n******************************\n\nNone of the targets are in-scope\n\n******************************")
+    
+    else:
+        print('\n********** IN-SCOPE Targets **********\n\n', in_scope_websites,
+            '\n\n**************************************\n')   
 
 
 def main():
@@ -97,8 +97,7 @@ def main():
     seconds = 10800
     print("\nScan complete.", seconds / 3600, "hours until next scan.\n")
 
-    z = 1
-    while z == 1: # need to change to while not exit
+    while 1 == 1: # need to change to while not exit
         time.sleep(seconds) # waits 3 hours before scanning again
         print("Starting NEW scan")
         bugcrowd()
