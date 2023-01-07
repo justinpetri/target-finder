@@ -6,13 +6,16 @@ import requests
 import pandas
 
 # TO DO:
-# Implement continuous scanning
-# Command functionality (i.e., bh -t tesla.com)
-# Allow for multiple targets
+# compare output of file to new scan
+# add scan for multiple days (i.e. capture targets over the last week)
+# Command functionality (i.e., bh -t tesla.com)  or menu with options (like  315 lab)
+# add test to see if targets return http status code of 200? can implement this as an option
+
+# Allow for multiple targets to scan
 # Add HackerOne DB
-# add test to see if targets return http status code of 200?
 
 target = 'tesla.com'
+seconds = 3
 
 def domain_query():
     cert_database = 'https://crt.sh/?CN=' + target
@@ -38,6 +41,7 @@ def domain_query():
         while entries[0][0] == entries[count][0]:
             websites.append(entries[count][1])
             count +=1
+    
     except IndexError:
         return 0
 
@@ -47,9 +51,7 @@ def domain_query():
 
 def bugcrowd():
     websites = domain_query()
-    in_scope_websites = []
 
-    
     # Checks Bugcrowd to see if a bug bounty exists for the targets
     bugcrowd_df = pandas.read_json('https://raw.githubusercontent.com/arkadiyt/bounty-targets-data/main/data/bugcrowd_data.json') # Stores bugcrowd_data.json in pandas DataFrame "bugcrowd_df"
     target_bc = target[:target.rindex(".")].capitalize() # Cleans target by removing the domain extension/top level domain and capitlizes the first letter (i.e. "google.com" == "Google")
@@ -67,6 +69,8 @@ def bugcrowd():
         out_of_scope_list = re.findall(r"'target': '(.*?)'}", out_of_scope_text)
         in_scope_text = str(search_bc_targets.loc['in_scope'].to_dict())
         in_scope_list = re.findall(r"'target': '(.*?)'}", in_scope_text)
+
+        in_scope_websites = []
         
         for website in websites:
             
@@ -82,24 +86,33 @@ def bugcrowd():
                         else:
                             in_scope_websites.append(website)
                             break
+    
+    return in_scope_websites
+
+def output():
+    in_scope_websites = bugcrowd()
 
     if len(in_scope_websites) == 0:
-        print("\n******************************\n\nNone of the targets are in-scope\n\n******************************")
+        print('\n******************************\n\nNone of the targets are in-scope\n\n******************************')
     
     else:
+        # check if output.txt exists. if so then compare output of file to new scan results. if result is same, then say no new results
+        with open(sys.path[0] + '\output.txt', 'w') as output_file:
+            for website in in_scope_websites:
+                output_file.write(website)
+        
+        output_file.close()
         print('\n********** IN-SCOPE Targets **********\n\n', in_scope_websites,
-            '\n\n**************************************\n')   
+            '\n\n**************************************\n')
 
+    print('\nScan complete.', seconds / 60, 'minutes until next scan.\n')
+    while 1 == 1:
+        time.sleep(seconds) # waits "seconds" before scanning again
+        print('Starting NEW scan')
+        bugcrowd()
 
 def main():
     bugcrowd()
-
-    seconds = 10800
-    print("\nScan complete.", seconds / 3600, "hours until next scan.\n")
-
-    while 1 == 1: # need to change to while not exit
-        time.sleep(seconds) # waits 3 hours before scanning again
-        print("Starting NEW scan")
-        bugcrowd()
+    output()
 
 main()
