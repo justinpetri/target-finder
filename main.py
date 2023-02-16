@@ -4,18 +4,23 @@ import time
 import fnmatch # Used to see if websites matches in-scope wildcard (i.e. hi.bob.com == *.bob.com)
 import requests
 import pandas
+import os
 
 # TO DO:
-# compare output of file to new scan
 # add scan for multiple days (i.e. capture targets over the last week)
-# Command functionality (i.e., bh -t tesla.com)  or menu with options (like  315 lab)
+# menu with options (like  315 lab)
 # add test to see if targets return http status code of 200? can implement this as an option
 
-# Allow for multiple targets to scan
+# reduce number of indentations/nests
+# clean up output/reduce print messages
+# Allow for multiple common names (google, tesla, etc.) to scan
 # Add HackerOne DB
+# what is a good way to keep track of things to do?
 
 target = 'tesla.com'
 seconds = 3
+
+now = time.localtime()
 
 def domain_query():
     cert_database = 'https://crt.sh/?CN=' + target
@@ -45,7 +50,10 @@ def domain_query():
     except IndexError:
         return 0
 
-    print('\nTargets from crt.sh database:\n', websites, '\n')
+    websites = [*set(websites)] # removes duplicate website links
+
+    t1 = time.strftime("%b-%d %H:%M:%S ")
+    print('\n' + t1 + 'Targets from crt.sh database:\n', websites, '\n')
     return websites
 
 
@@ -58,7 +66,7 @@ def bugcrowd():
     search_bc = bugcrowd_df[bugcrowd_df['name'] == target_bc] # Stores results of search
 
     if search_bc.empty: # Checks to see if target is in Bugcrowd database
-        print('\nERROR!', target, ' is in crt.sh but does not appear to have a Bugcrowd bounty program. Try a different target.\n')
+        print('\nERROR!', target, 'is in crt.sh but does not appear to have a Bugcrowd bounty program. Try a different target.\n')
         sys.exit()
     
     else:
@@ -73,7 +81,7 @@ def bugcrowd():
         in_scope_websites = []
         
         for website in websites:
-            
+
             for in_scope in in_scope_list:
                 
                 if fnmatch.fnmatch(website, in_scope): # Checks if in scope
@@ -90,29 +98,56 @@ def bugcrowd():
     return in_scope_websites
 
 def output():
-    in_scope_websites = bugcrowd()
+    while 1==1:
+        in_scope_websites = bugcrowd()
 
-    if len(in_scope_websites) == 0:
-        print('\n******************************\n\nNone of the targets are in-scope\n\n******************************')
-    
-    else:
-        # check if output.txt exists. if so then compare output of file to new scan results. if result is same, then say no new results
-        with open(sys.path[0] + '\output.txt', 'w') as output_file:
-            for website in in_scope_websites:
-                output_file.write(website)
+        if len(in_scope_websites) == 0:
+            t2 = time.strftime("%b-%d %H:%M:%S ")
+            print('\n******************************\n\n', t2, 'None of the targets are in-scope\n\n******************************')
         
-        output_file.close()
-        print('\n********** IN-SCOPE Targets **********\n\n', in_scope_websites,
-            '\n\n**************************************\n')
+        else:
+            new_counter = 0
 
-    print('\nScan complete.', seconds / 60, 'minutes until next scan.\n')
-    while 1 == 1:
+            output_filepath = os.path.realpath(os.path.dirname(__file__)) + '/output.txt'
+
+            if os.path.exists(output_filepath):
+
+                output_file_content = set(output_filepath)
+                with open (output_filepath, 'r+') as output_file:
+
+                    for website in in_scope_websites:
+                        
+                        if website in output_file_content: # prevents duplicate targets from appearing in file
+                            continue
+                        
+                        else:
+                            output_file.write(website + '\n')
+                            new_counter += 1
+                    
+                output_file.close()
+                    
+
+            else:
+                with open(output_filepath, 'w') as output_file:
+                    print("\nFUNCTION PART 2\n")
+
+                    for website in in_scope_websites:
+                        output_file.write(website + '\n')
+                        new_counter += 1
+            
+                    output_file.close()
+            
+            print('\n********** IN-SCOPE Targets **********\n\n', in_scope_websites,
+                '\n\n**************************************\n')
+        
+        t3 = time.strftime("%b-%d %H:%M:%S ")
+        print('\n' + t3 + 'Scan complete.', new_counter, 'new targets identified.\n', seconds / 60, 'minutes until next scan.\n')
+        
         time.sleep(seconds) # waits "seconds" before scanning again
-        print('Starting NEW scan')
-        bugcrowd()
+        t4 = time.strftime("%b-%d %H:%M:%S ")
+        print(t4, 'Starting NEW scan')
 
 def main():
-    bugcrowd()
     output()
 
 main()
