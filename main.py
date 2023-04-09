@@ -7,17 +7,16 @@ import pandas
 import os
 
 # TO DO:
-# add scan for multiple days (i.e. capture targets over the last week)
+# Allow for multiple common names (google, tesla, etc.) to scan
 # menu with options (like  315 lab)
 # add test to see if targets return http status code of 200? can implement this as an option
 
+# Add HackerOne DB
 # reduce number of indentations/nests
 # clean up output/reduce print messages
-# Allow for multiple common names (google, tesla, etc.) to scan
-# Add HackerOne DB
 # what is a good way to keep track of things to do?
 
-target = 'tesla.com'
+target = 'tesla.com', 'google.com'
 seconds = 3
 
 now = time.localtime()
@@ -39,18 +38,12 @@ def domain_query():
     data_frame = table[2].loc[:, ('Logged At ⇧', 'Matching Identities')] # Prints all rows for columns "Logged At ⇧" and "Matching Identities"
     entries = data_frame.values.tolist()
     
-    # Runs a check to see if multiple websites were created on the same day. If so, appends the targets to the "websites" list
-    count = 1
-    websites = [entries[0][1]]
-    try:
-        while entries[0][0] == entries[count][0]:
-            websites.append(entries[count][1])
-            count +=1
-    
-    except IndexError:
-        return 0
-
-    websites = [*set(websites)] # removes duplicate website links
+    number_of_entries = len(entries)
+    count = 0
+    websites = []
+    while count != number_of_entries:
+        websites.append(entries[count][1])
+        count+=1 
 
     t1 = time.strftime("%b-%d %H:%M:%S ")
     print('\n' + t1 + 'Targets from crt.sh database:\n', websites, '\n')
@@ -112,24 +105,24 @@ def output():
 
             if os.path.exists(output_filepath):
 
-                output_file_content = set(output_filepath)
-                with open (output_filepath, 'r+') as output_file:
-
-                    for website in in_scope_websites:
+                # output_file_content = set(output_filepath)
+                
+                for website in in_scope_websites:
+                    with open (output_filepath, 'r+') as output_file:
                         
-                        if website in output_file_content: # prevents duplicate targets from appearing in file
+                        if website in output_file.read(): # prevents duplicate targets from appearing in file
                             continue
                         
                         else:
                             output_file.write(website + '\n')
                             new_counter += 1
                     
-                output_file.close()
+                    output_file.close()
                     
 
             else:
                 with open(output_filepath, 'w') as output_file:
-                    print("\nFUNCTION PART 2\n")
+                    print("Output file not found! Creating one now...")
 
                     for website in in_scope_websites:
                         output_file.write(website + '\n')
