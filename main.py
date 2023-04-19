@@ -8,28 +8,35 @@ import os
 
 # TO DO:
 # Allow for multiple common names (google, tesla, etc.) to scan
-# menu with options (like  315 lab)
+# add check to make sure user inputs correct format for crt.sh query
 # add test to see if targets return http status code of 200? can implement this as an option
 
 # Add HackerOne DB
 # reduce number of indentations/nests
-# clean up output/reduce print messages
 # what is a good way to keep track of things to do?
 
-target = 'tesla.com', 'google.com'
-seconds = 3
+
+# should we scan the Common Names instead of the Matching Identities?
+# run bugcrowd check first domain_query?
 
 now = time.localtime()
 
-def domain_query():
-    cert_database = 'https://crt.sh/?CN=' + target
+def domain_query(target):
+    crt_database = 'https://crt.sh/?CN=' + target
 
-    response = requests.get(cert_database)
-    while response.status_code != 200: # Try and access database. If HTTP GET != 200, wait 3 seconds then try again
-        time.sleep(3)
-        response = requests.get(cert_database)
+    t1 = time.strftime("%b-%d %H:%M:%S ")
+    print('\n' + t1, 'Starting Scan for', target + '. Querying crt.sh database...')
+    while True:
+        try:
+            response = requests.get(crt_database, timeout=2)
+        except:
+            print('Query failed. Trying again...')
+            continue
+        break
+    print("Query SUCCESS")
     
     table = pandas.read_html(response.text) # Pull data from GET requests for use in pandas
+
 
     if 'Certificates  None found' in str(table): # Check if target is part of crt.sh database
         print('\nERROR! Target', target, 'could not be found in crt.sh. Please try a different target.\n')
@@ -45,13 +52,13 @@ def domain_query():
         websites.append(entries[count][1])
         count+=1 
 
-    t1 = time.strftime("%b-%d %H:%M:%S ")
-    print('\n' + t1 + 'Targets from crt.sh database:\n', websites, '\n')
+    print('Acquired potential targets from crt.sh')
     return websites
 
 
-def bugcrowd():
-    websites = domain_query()
+def bugcrowd(target):
+    websites = domain_query(target)
+    print("Querying Bugcrowd db...")
 
     # Checks Bugcrowd to see if a bug bounty exists for the targets
     bugcrowd_df = pandas.read_json('https://raw.githubusercontent.com/arkadiyt/bounty-targets-data/main/data/bugcrowd_data.json') # Stores bugcrowd_data.json in pandas DataFrame "bugcrowd_df"
@@ -90,57 +97,71 @@ def bugcrowd():
     
     return in_scope_websites
 
-def output():
-    while 1==1:
-        in_scope_websites = bugcrowd()
+def output(target):
+    in_scope_websites = bugcrowd(target)
 
-        if len(in_scope_websites) == 0:
-            t2 = time.strftime("%b-%d %H:%M:%S ")
-            print('\n******************************\n\n', t2, 'None of the targets are in-scope\n\n******************************')
-        
-        else:
-            new_counter = 0
+    if len(in_scope_websites) == 0:
+        print('None of the targets from crt.sh are in-scope')
+    
+    else:
+        print('Found', len(in_scope_websites), 'targets from crt.sh that are in scope')
+        new_counter = 0
 
-            output_filepath = os.path.realpath(os.path.dirname(__file__)) + '/output.txt'
+        output_filepath = os.path.realpath(os.path.dirname(__file__)) + '/output.txt'
 
-            if os.path.exists(output_filepath):
+        if os.path.exists(output_filepath):
 
-                # output_file_content = set(output_filepath)
-                
-                for website in in_scope_websites:
-                    with open (output_filepath, 'r+') as output_file:
-                        
-                        if website in output_file.read(): # prevents duplicate targets from appearing in file
-                            continue
-                        
-                        else:
-                            output_file.write(website + '\n')
-                            new_counter += 1
+            # output_file_content = set(output_filepath)
+            
+            for website in in_scope_websites:
+                with open (output_filepath, 'r+') as output_file:
                     
-                    output_file.close()
+                    if website in output_file.read(): # prevents duplicate targets from appearing in file
+                        continue
                     
-
-            else:
-                with open(output_filepath, 'w') as output_file:
-                    print("Output file not found! Creating one now...")
-
-                    for website in in_scope_websites:
+                    else:
                         output_file.write(website + '\n')
                         new_counter += 1
-            
-                    output_file.close()
-            
-            print('\n********** IN-SCOPE Targets **********\n\n', in_scope_websites,
-                '\n\n**************************************\n')
+                
+                output_file.close()
+                
+
+        else:
+            with open(output_filepath, 'w') as output_file:
+                print("Output file not found! Creating one now...")
+
+                for website in in_scope_websites:
+                    output_file.write(website + '\n')
+                    new_counter += 1
         
-        t3 = time.strftime("%b-%d %H:%M:%S ")
-        print('\n' + t3 + 'Scan complete.', new_counter, 'new targets identified.\n', seconds / 60, 'minutes until next scan.\n')
+                output_file.close()
         
-        time.sleep(seconds) # waits "seconds" before scanning again
-        t4 = time.strftime("%b-%d %H:%M:%S ")
-        print(t4, 'Starting NEW scan')
+        print('Finished writing', new_counter, 'new targets to output file')
+        
 
 def main():
-    output()
+    target_list = input('Please enter the target(s) you wish to scan separated by a space (i.e., tesla.com google.com):\n')
+    target_list = target_list.split(' ')
+
+    try:
+        minutes = int(input('Time between scans (in minutes)? '))
+    except ValueError:
+         minutes = int(input('ERROR: Please enter a number for time between scans (in minutes)? '))
+
+    while 1 == 1:
+        
+        for target in target_list:
+            output(target)
+            
+            if len(target_list) > 1:
+                print('\nWaiting 5 seconds before performing next scan due to rate limiting on crt.sh...')
+                time.sleep(5) # SEE IF THIS OVERCOMES RATE LIMITING?
+
+        t2 = time.strftime("%b-%d %H:%M:%S ")
+        print('\n' + t2 + 'Scan complete.\n', minutes * 60, 'minutes until next scan.\n')
+        
+        time.sleep(minutes) # waits "seconds" before scanning again
+        t3 = time.strftime("%b-%d %H:%M:%S ")
+        print(t3, 'Starting NEW scan')
 
 main()
