@@ -6,26 +6,13 @@ import requests
 import pandas
 import os
 
-# TO DO:
-# Allow for multiple common names (google, tesla, etc.) to scan
-# add check to make sure user inputs correct format for crt.sh query
-# add test to see if targets return http status code of 200? can implement this as an option
-
-# Add HackerOne DB
-# reduce number of indentations/nests
-# what is a good way to keep track of things to do?
-
-
-# should we scan the Common Names instead of the Matching Identities?
-# run bugcrowd check first domain_query?
-
 now = time.localtime()
 
 def domain_query(target):
     crt_database = 'https://crt.sh/?CN=' + target
 
     t1 = time.strftime("%b-%d %H:%M:%S ")
-    print('\n' + t1, 'Starting Scan for', target + '. Querying crt.sh database...')
+    print('\n' + t1 + 'Starting Scan for [' + target + ']. Querying crt.sh database...')
     while True:
         try:
             response = requests.get(crt_database, timeout=2)
@@ -66,7 +53,7 @@ def bugcrowd(target):
     search_bc = bugcrowd_df[bugcrowd_df['name'] == target_bc] # Stores results of search
 
     if search_bc.empty: # Checks to see if target is in Bugcrowd database
-        print('\nERROR!', target, 'is in crt.sh but does not appear to have a Bugcrowd bounty program. Try a different target.\n')
+        print('\nERROR! [' + target + '] is in crt.sh but does not appear to have a Bugcrowd bounty program. Try a different target.\n')
         sys.exit()
     
     else:
@@ -140,13 +127,16 @@ def output(target):
         
 
 def main():
-    target_list = input('Please enter the target(s) you wish to scan separated by a space (i.e., tesla.com google.com):\n')
+    target_list = input('Please enter the domain name for the target(s) you wish to scan separated by a space (i.e., tesla.com google.com):\n')
     target_list = target_list.split(' ')
 
-    try:
-        minutes = int(input('Time between scans (in minutes)? '))
-    except ValueError:
-         minutes = int(input('ERROR: Please enter a number for time between scans (in minutes)? '))
+    while True:
+        try:
+            minutes = float(input('Time between scans (in minutes)? '))
+        except:
+            minutes = float(input('ERROR! Please enter a number for time between scans'))
+        else:
+            break
 
     while 1 == 1:
         
@@ -158,9 +148,9 @@ def main():
                 time.sleep(5) # SEE IF THIS OVERCOMES RATE LIMITING?
 
         t2 = time.strftime("%b-%d %H:%M:%S ")
-        print('\n' + t2 + 'Scan complete.\n', minutes * 60, 'minutes until next scan.\n')
+        print(t2 + 'Scan complete.', minutes, 'minutes until next scan.\n')
         
-        time.sleep(minutes) # waits "seconds" before scanning again
+        time.sleep(minutes * 60) # waits "minutes" before scanning again
         t3 = time.strftime("%b-%d %H:%M:%S ")
         print(t3, 'Starting NEW scan')
 
