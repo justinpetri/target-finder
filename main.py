@@ -34,7 +34,7 @@ def domain_query(target):
     
     number_of_entries = len(entries)
     count = 0
-    websites = []
+    websites = [] 
     while count != number_of_entries:
         websites.append(entries[count][1])
         count+=1 
@@ -134,12 +134,11 @@ def main():
         try:
             minutes = float(input('Time between scans (in minutes)? '))
         except:
-            minutes = float(input('ERROR! Please enter a number for time between scans'))
+            minutes = print('ERROR! Please enter a number for time between scans')
         else:
             break
 
-    while 1 == 1:
-        
+    while True:
         for target in target_list:
             output(target)
             
@@ -153,5 +152,5 @@ def main():
         time.sleep(minutes * 60) # waits "minutes" before scanning again
         t3 = time.strftime("%b-%d %H:%M:%S ")
         print(t3, 'Starting NEW scan')
-
+        
 main()
