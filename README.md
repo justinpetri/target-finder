@@ -3,10 +3,9 @@
 Thanks to Matan Dobrushin for coming up with the project idea. This wouldn't have been possible without his teachings and guidance.
 
 TO DO:
-- Trello.com is in bugcrowd and in scope but targets from scan don't pass check because not *.trello.com, bounty program is just trello.com so should we assume anything in domain is automatically in-scope?
 - add test to see if targets return http status code of 200? can implement this as an option
 - Entrust or APIs instead of crt.sh?
-- should we scan the Common Names instead of the Matching Identities?
+- Download crt.sh database and update every 6 hours
 - MIT License?
 
 FUTURE:
