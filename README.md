@@ -9,6 +9,7 @@ TO DO:
 - MIT License?
 
 FUTURE:
+- connect to crt.sh db using postgresql? https://groups.google.com/g/crtsh/c/oEDOzwr2Fuc
 - Add HackerOne and other bug bounty program databases
 - source for bugbounty db is not updated fast enough (i.e. gap.com is not there). gather in scope targets using APIs?
 https://docs.bugcrowd.com/api/getting-started/
