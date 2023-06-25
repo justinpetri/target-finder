@@ -5,6 +5,8 @@ import fnmatch # Used to see if websites matches in-scope wildcard (i.e. hi.bob.
 import requests
 import pandas
 import os
+import pyfiglet
+
 
 now = time.localtime()
 
@@ -13,17 +15,22 @@ def domain_query(target):
 
     t1 = time.strftime("%b-%d %H:%M:%S ")
     print('\n' + t1 + 'Starting Scan for [' + target + ']. Querying crt.sh database...')
+    
+    failCount = 0
+
     while True:
+        if failCount == 5:
+            raise SystemExit('ERROR! Too many failed queries to crt.sh. Try again or check status of crt.sh db')
+
         try:
-            response = requests.get(crt_database, timeout=2)
+            response = requests.get(crt_database, timeout=3) # what exactly is rate limiting me?
+            if response.status_code == 200:
+                break
         except:
-            print('Query failed. Trying again...')
-            continue
-        break
-    print("Query SUCCESS")
+            print('Query timed out. Retrying...')
+            failCount+=1
     
     table = pandas.read_html(response.text) # Pull data from GET requests for use in pandas
-
 
     if 'Certificates  None found' in str(table): # Check if target is part of crt.sh database
         print('\nERROR! Target', target, 'could not be found in crt.sh. Please try a different target.\n')
@@ -40,8 +47,9 @@ def domain_query(target):
         count+=1 
 
     print('Acquired potential targets from crt.sh')
-    return websites
+    websites = [*set(websites)] # removes duplicate websites
 
+    return websites
 
 def bugcrowd(target):
     websites = domain_query(target)
@@ -62,6 +70,7 @@ def bugcrowd(target):
         # Had to convert following lines from dataframe to dict to str as Dataframe output is truncated
         out_of_scope_text = str(search_bc_targets.loc['out_of_scope'].to_dict())
         out_of_scope_list = re.findall(r"'target': '(.*?)'}", out_of_scope_text)
+        
         in_scope_text = str(search_bc_targets.loc['in_scope'].to_dict())
         in_scope_list = re.findall(r"'target': '(.*?)'}", in_scope_text)
 
@@ -69,19 +78,19 @@ def bugcrowd(target):
         
         for website in websites:
 
-            for in_scope in in_scope_list:
-                
-                if fnmatch.fnmatch(website, in_scope): # Checks if in scope
-                
-                    for out_scope in out_of_scope_list:
-
-                        if fnmatch.fnmatch(website, out_scope): # Checks if out of scope
-                            break
-                    
-                        else:
-                            in_scope_websites.append(website)
-                            break
+            for out_scope in out_of_scope_list:
     
+                if fnmatch.fnmatch(website, out_scope):
+                    break
+            
+    
+            else:
+                for in_scope in in_scope_list:
+        
+                    if fnmatch.fnmatch(website, in_scope) or target == in_scope:
+                        in_scope_websites.append(website)
+                        break
+
     return in_scope_websites
 
 def output(target):
@@ -92,19 +101,18 @@ def output(target):
     
     else:
         print('Found', len(in_scope_websites), 'targets from crt.sh that are in scope')
+        
         new_counter = 0
 
         output_filepath = os.path.realpath(os.path.dirname(__file__)) + '/output.txt'
 
         if os.path.exists(output_filepath):
-
-            # output_file_content = set(output_filepath)
             
-            for website in in_scope_websites:
-                with open (output_filepath, 'r+') as output_file:
+            with open(output_filepath, 'r+') as output_file:
+                for website in in_scope_websites:
                     
                     if website in output_file.read(): # prevents duplicate targets from appearing in file
-                        continue
+                        break
                     
                     else:
                         output_file.write(website + '\n')
@@ -121,12 +129,14 @@ def output(target):
                     output_file.write(website + '\n')
                     new_counter += 1
         
-                output_file.close()
         
         print('Finished writing', new_counter, 'new targets to output file')
-        
 
 def main():
+    # Prints banner for the tool
+    banner = pyfiglet.figlet_format("Target Finder", width=80)
+    print(banner)
+    
     target_list = input('Please enter the domain name for the target(s) you wish to scan separated by a space (i.e., tesla.com google.com):\n')
     target_list = target_list.split(' ')
 
@@ -147,10 +157,9 @@ def main():
                 time.sleep(5) # SEE IF THIS OVERCOMES RATE LIMITING?
 
         t2 = time.strftime("%b-%d %H:%M:%S ")
-        print(t2 + 'Scan complete.', minutes, 'minutes until next scan.\n')
+        print(t2 + 'Scan complete.', minutes, 'minute(s) until next scan.\n')
         
         time.sleep(minutes * 60) # waits "minutes" before scanning again
-        t3 = time.strftime("%b-%d %H:%M:%S ")
-        print(t3, 'Starting NEW scan')
+        print('Starting NEW scan')
         
 main()
