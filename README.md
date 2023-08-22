@@ -3,7 +3,7 @@
 Special thank you to Matan Dobrushin for coming up with the project idea.
 
 TO DO:
-- Download crt.sh database and update every 6 hours
+- Download crt.sh database and update every 6 hours b/c crt.sh has a tendency to go down often
 
 FUTURE:
 - connect to crt.sh db using postgresql? https://groups.google.com/g/crtsh/c/oEDOzwr2Fuc
